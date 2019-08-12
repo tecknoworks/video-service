@@ -2,9 +2,12 @@ const fs = require('fs');
 const { stat, createReadStream } = require('fs');
 const { promisify } = require('util')
 const path = require('path');
+const FormData =require('form-data');
 
 const fileInfo = promisify(stat);
 const folder = `${__dirname}/../videos/`;
+
+const ExtractFrames = require('./extract_frames');
 
 module.exports = {
     stream: async function (req, res) {
@@ -42,6 +45,7 @@ module.exports = {
         }
     },
     upload: function (req, res) {
+        
         if (Object.keys(req.files).length == 0)
             return res.status(400).send('No files were uploaded.');
 
@@ -55,6 +59,33 @@ module.exports = {
                 return res.status(500).send(err);
 
             res.send('File uploaded!');
+        });
+    },
+    uploadWithCaption: function(req, res){
+        if (Object.keys(req.files).length == 0)
+            return res.status(400).send('No files were uploaded.');
+
+        let fileName = req.body.name;
+        let video = req.files.video;
+
+        let videoPath = path.resolve(folder, `${fileName}.mp4`);
+
+        video.mv(videoPath, function (err) {
+            if (err)
+                return res.status(500).send(err);
+            ExtractFrames.extract(fileName).then(()=>{
+                var formData = new FormData()
+
+                formData.append('image',fs.createReadStream( `images/screenshot.jpg`))
+                formData.append('name', fileName)
+            
+                formData.submit('http://localhost:3002/assets/image/upload', function(err, res){
+                    if(err)
+                        console.log(err);
+                    console.log('Caption uploaded sucessfully');                      
+                })
+            })
+            res.send('Video uploaded and caption saved!');
         });
     }
 }
