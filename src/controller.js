@@ -79,11 +79,7 @@ module.exports = {
                 formData.append('image',fs.createReadStream( `images/screenshot.jpg`))
                 formData.append('name', fileName)
             
-                formData.submit('http://localhost:3002/assets/image/upload', function(err, res){
-                    if(err)
-                        console.log(err);
-                    console.log('Caption uploaded sucessfully');                      
-                })
+                formData.submit('http://localhost:3002/assets/image/upload', function(err, res){})
             })
             res.send('Video uploaded and caption saved!');
         });
