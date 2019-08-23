@@ -2,7 +2,7 @@ const fs = require('fs');
 const { stat, createReadStream } = require('fs');
 const { promisify } = require('util')
 const path = require('path');
-const FormData =require('form-data');
+const FormData = require('form-data');
 
 const fileInfo = promisify(stat);
 const folder = `${__dirname}/../videos/`;
@@ -11,7 +11,9 @@ const ExtractFrames = require('./extract_frames');
 
 module.exports = {
     stream: async function (req, res) {
-        let fileName = req.params.id;
+        let fileName = req.query.videoId;
+        console.log(fileName);
+        
         let videoPath = path.resolve(folder, `${fileName}.mp4`);
 
         const stat = fs.statSync(videoPath);
@@ -45,7 +47,7 @@ module.exports = {
         }
     },
     upload: function (req, res) {
-        
+
         if (Object.keys(req.files).length == 0)
             return res.status(400).send('No files were uploaded.');
 
@@ -61,7 +63,7 @@ module.exports = {
             res.send('File uploaded!');
         });
     },
-    uploadWithCaption: function(req, res){
+    uploadWithCaption: function (req, res) {
         if (Object.keys(req.files).length == 0)
             return res.status(400).send('No files were uploaded.');
 
@@ -73,15 +75,30 @@ module.exports = {
         video.mv(videoPath, function (err) {
             if (err)
                 return res.status(500).send(err);
-            ExtractFrames.extract(fileName).then(()=>{
+            ExtractFrames.extract(fileName, 1).then(() => {
                 var formData = new FormData()
 
-                formData.append('image',fs.createReadStream( `images/screenshot.jpg`))
+                formData.append('image', fs.createReadStream(`images/screenshot.jpg`))
                 formData.append('name', fileName)
-            
-                formData.submit('http://localhost:3002/assets/image/upload', function(err, res){})
+
+                formData.submit('http://localhost:3002/assets/image/upload', function (err, res) { })
             })
             res.send('Video uploaded and caption saved!');
         });
+    },
+    getFrame: function (req, res) {
+        try {
+            let videoId = req.query.videoId;
+            let offset = req.query.offset;
+            console.log(videoId, offset);
+            
+            ExtractFrames.extract(videoId, offset).then(() => {
+                res.sendFile(`/images/screenshot.jpg`,{root: './'})
+                }
+            )
+        } catch (error) {
+            res.send(error.message)
+        }
+        
     }
 }
