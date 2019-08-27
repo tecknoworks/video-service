@@ -12,7 +12,6 @@ const ExtractFrames = require('./extract_frames');
 module.exports = {
     stream: async function (req, res) {
         let fileName = req.query.videoId;
-        console.log(fileName);
         
         let videoPath = path.resolve(folder, `${fileName}.mp4`);
 
@@ -90,7 +89,6 @@ module.exports = {
         try {
             let videoId = req.query.videoId;
             let offset = req.query.offset;
-            console.log(videoId, offset);
             
             ExtractFrames.extract(videoId, offset).then(() => {
                 res.sendFile(`/images/screenshot.jpg`,{root: './'})
