@@ -5,6 +5,18 @@ const path = require('path')
 const app = express()
 const fileUpload = require('express-fileupload');
 const logger = require('morgan');
+const fs = require('fs');
+
+//create images and videos folders if they not exist
+const imagesFolder = `${__dirname}/../images`;
+const videosfolder = `${__dirname}/../videos`;
+if(!fs.existsSync(imagesFolder)){
+    fs.mkdirSync(imagesFolder);
+}
+if(!fs.existsSync(videosfolder)){
+    fs.mkdirSync(videosfolder);
+}
+
 
 const port = 3003
 const router= require('./router')

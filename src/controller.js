@@ -5,7 +5,7 @@ const path = require('path');
 const FormData = require('form-data');
 
 const fileInfo = promisify(stat);
-const folder = `${__dirname}/../videos/`;
+const videoFolder = `${__dirname}/../videos/`;
 
 const ExtractFrames = require('./extract_frames');
 
@@ -13,7 +13,7 @@ module.exports = {
     stream: async function (req, res) {
         let fileName = req.query.videoId;
         
-        let videoPath = path.resolve(folder, `${fileName}.mp4`);
+        let videoPath = path.resolve(videoFolder, `${fileName}.mp4`);
 
         const stat = fs.statSync(videoPath);
         const fileSize = stat.size;
@@ -53,7 +53,7 @@ module.exports = {
         let fileName = req.body.name;
         let video = req.files.video;
 
-        let videoPath = path.resolve(folder, `${fileName}.mp4`);
+        let videoPath = path.resolve(videoFolder, `${fileName}.mp4`);
 
         video.mv(videoPath, function (err) {
             if (err)
@@ -69,7 +69,7 @@ module.exports = {
         let fileName = req.body.name;
         let video = req.files.video;
 
-        let videoPath = path.resolve(folder, `${fileName}.mp4`);
+        let videoPath = path.resolve(videoFolder, `${fileName}.mp4`);
 
         video.mv(videoPath, function (err) {
             if (err)
@@ -97,6 +97,17 @@ module.exports = {
         } catch (error) {
             res.send(error.message)
         }
-        
+    },
+    //just for seeding
+    deleteAllVideos: function(req,res){
+        fs.readdir(videoFolder, (err, files) => {
+            if (err) throw err;
+          
+            for (const file of files) {
+              fs.unlink(path.join(videoFolder, file), err => {
+                if (err) throw err;
+              });
+            }
+          });
     }
 }
