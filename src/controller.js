@@ -3,17 +3,38 @@ const { stat, createReadStream } = require('fs');
 const { promisify } = require('util')
 const path = require('path');
 const FormData = require('form-data');
+const uuid = require('uuid/v4');
+const axios = require('axios');
+const { getVideoDurationInSeconds } = require('get-video-duration')
 
 const fileInfo = promisify(stat);
 const videoFolder = `${__dirname}/../videos/`;
+const imagesFolder = `${__dirname}/../images/`;
+const assetsServiceBaseUrl ='http://localhost:3002/assets'
 
 const ExtractFrames = require('./extract_frames');
 
+async function uploadLocalImage(url, imagePath){
+    try {
+        var formData = new FormData()
+        formData.append('image', fs.createReadStream(imagePath));
+        
+        let headers = {headers: {...formData.getHeaders()}};
+        var result = await axios.post(url, formData, headers);
+        
+        return result.data.imageFileName;
+    } catch (error) {  
+        console.log(error);
+        
+        throw 'Error uploading the video frame.'
+    }
+}
+
 module.exports = {
     stream: async function (req, res) {
-        let fileName = req.query.videoId;
+        let fileName = req.query.video;
         
-        let videoPath = path.resolve(videoFolder, `${fileName}.mp4`);
+        let videoPath = path.resolve(videoFolder, fileName);
 
         const stat = fs.statSync(videoPath);
         const fileSize = stat.size;
@@ -45,69 +66,126 @@ module.exports = {
             fs.createReadStream(videoPath).pipe(res);
         }
     },
-    upload: function (req, res) {
+    upload: async function (req, res) {
 
         if (Object.keys(req.files).length == 0)
             return res.status(400).send('No files were uploaded.');
 
-        let fileName = req.body.name;
-        let video = req.files.video;
+        let fileName = req.files.video.name;
 
-        let videoPath = path.resolve(videoFolder, `${fileName}.mp4`);
+        if (!fileName.match(/.(mp4)$/i))
+            res.status(400).send('File uploaded is not an mp4 video.')
+        else{
+            let video = req.files.video;
+            
+            let newFileName = `${uuid()}.mp4`;
+            let videoPath = path.resolve(videoFolder, newFileName);
 
-        video.mv(videoPath, function (err) {
-            if (err)
-                return res.status(500).send(err);
+            video.mv(videoPath, async function (err) {
+                if (err)
+                    return res.status(500).send(err);
 
-            res.send('File uploaded!');
-        });
+                let runtime = await getVideoDurationInSeconds(videoPath);
+
+                res.send({
+                    videoFileName: newFileName,
+                    runtime: Math.floor(runtime)
+                });
+            });
+        }
+        
     },
-    uploadWithCaption: function (req, res) {
+    uploadWithPoster: async function (req, res) {
         if (Object.keys(req.files).length == 0)
             return res.status(400).send('No files were uploaded.');
 
-        let fileName = req.body.name;
-        let video = req.files.video;
+        let fileName = req.files.video.name;
+        
+        //only .mp4 videos can be uploaded
+        if (!fileName.match(/.(mp4)$/i))
+            res.status(400).send('File uploaded is not an mp4 video.')
+        else{
+            let video = req.files.video;
 
-        let videoPath = path.resolve(videoFolder, `${fileName}.mp4`);
+            let newFileName = `${uuid()}.mp4`;
+            let videoPath = path.resolve(videoFolder, newFileName);
 
-        video.mv(videoPath, function (err) {
-            if (err)
-                return res.status(500).send(err);
-            ExtractFrames.extract(fileName, 1).then(() => {
-                var formData = new FormData()
 
-                formData.append('image', fs.createReadStream(`images/screenshot.jpg`))
-                formData.append('name', fileName)
+            video.mv(videoPath, function (err) {
+                if (err)
+                    return res.status(500).send(err);
 
-                formData.submit('http://localhost:3002/assets/image/upload', function (err, res) { })
-            })
-            res.send('Video uploaded and caption saved!');
-        });
+                ExtractFrames.extract(newFileName, 1).then(
+                    async (videoFrameName) =>{
+                        try {
+                            let uploadUrl = `${assetsServiceBaseUrl}/image/upload`;
+                            videoFramePath = path.resolve(imagesFolder, videoFrameName);
+
+                            var poster = await uploadLocalImage(uploadUrl, videoFramePath);
+
+                            let runtime = await getVideoDurationInSeconds(videoPath);
+                            
+                            fs.unlink(videoFramePath,(err)=>{
+                                if(err){
+                                    console.log(err);
+                                    return res.status(400).send('Error uploading the video with the poster.')
+                                }
+                                return res.send({
+                                    imageFileName: poster,
+                                    video: {
+                                        videoFileName: newFileName,
+                                        runtime: Math.floor(runtime)
+                                    }
+                                })
+                            })
+                        } catch (error) {
+                            console.log(error);
+                            
+                            fs.unlink(videoPath,(err)=>{
+                                if(err){
+                                    console.log(err);
+                                }
+                                res.status(400).send('Error uploading the video with the poster.')
+                            });
+                        }
+                    } 
+                )
+            });
+        }
     },
     getFrame: function (req, res) {
         try {
+        
             let videoId = req.query.videoId;
             let offset = req.query.offset;
-            
-            ExtractFrames.extract(videoId, offset).then(() => {
-                res.sendFile(`/images/screenshot.jpg`,{root: './'})
-                }
-            )
+
+            ExtractFrames.extract(videoId, offset).then((videoFamePath) => {
+                res.sendFile(videoFamePath, (err)=>{
+                    if(err){
+                        console.log(err);
+                    }
+                    fs.unlink(videoFamePath,(err)=>{
+                        if(err){
+                            console.log(err);
+                        }
+                    });
+                });
+            });
         } catch (error) {
-            res.send(error.message)
+            res.status(400).send(error.message);
         }
     },
-    //just for seeding
-    deleteAllVideos: function(req,res){
-        fs.readdir(videoFolder, (err, files) => {
-            if (err) throw err;
-          
-            for (const file of files) {
-              fs.unlink(path.join(videoFolder, file), err => {
-                if (err) throw err;
-              });
-            }
-          });
+    deleteVideo: function(req,res){
+        let videoFileName = req.query.videoFileName;
+        if(videoFileName){
+            let videoPath = path.resolve(videoFolder, videoFileName);
+            fs.unlink(videoPath, (err)=>{
+                if(err)
+                    return res.status(400).send('Error occured during deletion of the video file.');
+                return res.status(204).send();
+            });
+        }
+        else
+            res.status(400).send('Invalid request.');
     }
 }

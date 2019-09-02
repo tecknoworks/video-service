@@ -22,10 +22,12 @@ const port = 3003
 const router= require('./router')
 
 app.use(cors())
-app.use(bodyparser.json())
-app.use(logger('dev'));
 
 app.use(fileUpload())
+app.use(bodyparser.json({limit: '3gb'}));
+app.use(bodyparser.urlencoded({limit: '3gb', extended: true}));
+
+app.use(logger('dev'));
 
 app.use('/videos', router)
 

@@ -5,8 +5,7 @@ const VideoController = require('./controller')
 router.get('/frame',VideoController.getFrame);
 router.get('/stream', VideoController.stream);
 router.post('/upload', VideoController.upload);
-router.post('/upload-with-caption', VideoController.uploadWithCaption);
-
-router.delete('/delete-all',  VideoController.deleteAllVideos);
+router.post('/upload-with-poster', VideoController.uploadWithPoster);
+router.delete('/delete',  VideoController.deleteVideo);
 
 module.exports= router;
