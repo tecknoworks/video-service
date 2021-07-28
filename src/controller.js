@@ -7,10 +7,10 @@ const uuid = require('uuid/v4');
 const axios = require('axios');
 const { getVideoDurationInSeconds } = require('get-video-duration')
 
+const config = require("./config");
 const fileInfo = promisify(stat);
 const videoFolder = `${__dirname}/../videos/`;
 const imagesFolder = `${__dirname}/../images/`;
-const assetsServiceBaseUrl ='http://localhost:3002/assets'
 
 const ExtractFrames = require('./extract_frames');
 
@@ -118,7 +118,7 @@ module.exports = {
                 ExtractFrames.extract(newFileName, 1).then(
                     async (videoFrameName) =>{
                         try {
-                            let uploadUrl = `${assetsServiceBaseUrl}/image/upload`;
+                            let uploadUrl = `${config.assetServiceUrl}/image/upload`;
                             videoFramePath = path.resolve(imagesFolder, videoFrameName);
 
                             var poster = await uploadLocalImage(uploadUrl, videoFramePath);
